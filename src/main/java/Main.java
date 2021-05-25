@@ -1,18 +1,55 @@
-import org.apache.spark.api.java.function.FilterFunction;
-import org.apache.spark.sql.SparkSession;
-import org.apache.spark.sql.Dataset;
+import org.apache.spark.SparkConf;
+import org.apache.spark.SparkContext;
+import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaSparkContext;
+import scala.Tuple2;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedList;
 
 public class Main {
     public static void main(String[] args) {
-        String logFile = "src/main/resources/data/German/Bis zum Nullpunkt des Seins - Kurd Lasswitz.txt"; // Should be some file on your system
-        SparkSession session = SparkSession.builder().appName("Simple Test").config("spark.master", "local").getOrCreate();
-        Dataset<String> logData = session.read().textFile(logFile).cache();
 
-        long numAs = logData.filter((FilterFunction<String>) s -> s.contains("a")).count();
-        long numBs = logData.filter((FilterFunction<String>) s -> s.contains("b")).count();
+        SparkConf config = new SparkConf().
+                setAppName("Belegaufgabe").
+                setMaster("local").
+                set("spark.executor.cores", "4");
 
-        System.out.println("Lines with a: " + numAs + ", lines with b: " + numBs);
+        // Spark Context
+        JavaSparkContext context = new JavaSparkContext(config);
 
-        session.stop();
+        LinkedList<LanguageResult> results = new LinkedList<>();
+
+        for (Language lang: Language.values()) {
+            results.add(getResult(context, lang));
+        }
+
+//        results.add(getResult(context, Language.GERMAN));
+//        results.add(getResult(context, Language.ITALIAN));
+
+        printResult(results);
+        context.stop();
+    }
+
+    public static LanguageResult getResult(JavaSparkContext con, Language lang){
+        JavaRDD<String> inputFile = con.textFile(lang.getPath());
+
+        JavaPairRDD<Integer, String> topWords = inputFile.flatMap(line -> Arrays.asList(line.split("\\P{L}+")).iterator()).
+                mapToPair(word -> new Tuple2<>(word.length(),word)).
+                reduceByKey((v1,v2) -> v1 ).
+                sortByKey(false);
+
+        topWords.cache();
+//        System.out.println( topWords.collect().get(0));
+        LanguageResult result = new LanguageResult(lang, topWords.collect().get(0)._2);
+        return result;
+    }
+
+    public static void printResult(LinkedList<LanguageResult> results){
+        System.out.printf(" Language     |     Longest Word     |   Length %n");
+        System.out.printf("-------------------------------------------------%n");
+        results.forEach( result -> System.out.printf( "%s | %s | %d %n", result.getLanguage(), result.getTopWord(), result.getLength()));
     }
 }
