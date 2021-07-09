@@ -8,7 +8,7 @@ enum Language {
 	SPANISH("spanish"),
 	UKRAINIAN("ukrainian");
 
-	private String path;
+	private final String path;
 
 	Language(String path) {
 		this.path = path;

@@ -6,7 +6,6 @@ import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple2;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.LinkedList;
 
 public class Main {
@@ -14,8 +13,8 @@ public class Main {
 
         SparkConf config = new SparkConf().
                 setAppName("Belegaufgabe").
-                setMaster("local").
-                set("spark.executor.cores", "4");
+                setMaster("local[*]").
+                set("spark.executor.cores", "1");
 
         // Spark Context
         JavaSparkContext context = new JavaSparkContext(config);
@@ -25,9 +24,6 @@ public class Main {
         for (Language lang: Language.values()) {
             results.add(getResult(context, lang));
         }
-
-//        results.add(getResult(context, Language.GERMAN));
-//        results.add(getResult(context, Language.ITALIAN));
 
         printResult(results);
         context.stop();
@@ -41,8 +37,6 @@ public class Main {
                 reduceByKey((v1,v2) -> v1 ).
                 sortByKey(false);
 
-        topWords.cache();
-//        System.out.println( topWords.collect().get(0));
         LanguageResult result = new LanguageResult(lang, topWords.collect().get(0)._2);
         return result;
     }
